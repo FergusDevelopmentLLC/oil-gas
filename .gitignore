@@ -1,0 +1,11 @@
+node_modules/
+public/data/*.geojson
+public/data/fedlands.json
+public/data/owners_export.json
+public/data/*.csv
+public/data/fedland_geojson.tar.gz
+public/data/*.dump
+knexfile.js
+*.lock
+results.txt
+cd

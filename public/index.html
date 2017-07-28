@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=utf-8 />
+    <title>Colorado Oil and Gas Wells: 1930 - 2017</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src="https://unpkg.com/vue"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/simple-statistics@2.5.0/dist/simple-statistics.min.js"></script>
+
+    <script src="http://spin.js.org/spin.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
+    <link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Francois+One' rel='stylesheet' type='text/css'>
+    <link href='http://getbootstrap.com/dist/css/bootstrap.css' rel='stylesheet' type='text/css'>
+    <style>
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: Francois One, sans-serif;
+          font-size: 15px;
+        }
+        html, body, #map {
+          height: 100%;
+          width: 100%;
+        }
+        #legend {
+          position:absolute;
+          z-index: 401;
+          bottom: 20px;
+          left: 20px;
+          width: 190px;
+          background-color: #fff;
+          padding:10px;
+          border-radius: 5px;
+        }
+
+        h2 {
+          margin: 0;
+          font-size: 13pt;
+          margin-bottom:10px;
+          text-align: center;
+        }
+
+        h3 {
+          margin: 0;
+          font-size: 10pt;
+          text-align: center;
+          margin-bottom:10px;
+        }
+
+        h4 {
+          margin: 0;
+          font-size: 28pt;
+          margin-top:10px;
+          text-align: center;
+        }
+
+        table {
+          border-collapse: collapse;
+          table-layout:fixed;
+          margin:auto;
+
+        }
+
+        .twenty, .forty, .sixty, .eighty, .hundred { border: 1px solid rgba(255, 0, 0, 1); }
+        .twenty { background: rgba(255, 0, 0, .2); }
+        .forty  { background: rgba(255, 0, 0, .4); }
+        .sixty  { background: rgba(255, 0, 0, .6); }
+        .eighty { background: rgba(255, 0, 0, .8); }
+        .hundred { background: rgba(255, 0, 0, 1); }
+
+        table td {
+          text-align: right;
+          font-family: Lato, sans-serif;
+          font-size: 14px;
+        }
+        table td#spacer {
+          height:5px;
+        }
+    </style>
+</head>
+<body>
+  <div id="legend">
+    <div id="app">
+      <h2>Colorado</h2>
+      <h3>Number of Oil and Gas Wells</h3>
+      <table>
+        <tr>
+          <td class="twenty">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+          <td class="forty">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+          <td class="sixty">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+          <td class="eighty">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+          <td class="hundred">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+        </tr>
+        <tr>
+          <td colspan="5" id="spacer"></td>
+        </tr>
+        <tr>
+          <td>{{ brks[0] }}</td>
+          <td>{{ brks[1] }}</td>
+          <td>{{ brks[2] }}</td>
+          <td>{{ brks[3] }}</td>
+          <td>{{ brks[4] }}</td>
+        </tr>
+      </table>
+      <h4>{{ wellYear }}</h4>
+    </div>
+  </div>
+  <div id='map'></div>
+</body>
+</html>
+<script>
+
+    var map = L.map('map', {
+      center: [39.094145, -105.683906],
+      zoom: 8,
+    });
+
+    var layer = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+      id: 'willcarter.cigctwbwf0dqgt9kq4geyzag4',
+      accessToken: 'pk.eyJ1Ijoid2lsbGNhcnRlciIsImEiOiJjaWdjdHdkNzYwZGp3dTVtMGhhY2ZkaDloIn0.9qTtVfFnKXVe82B-6mJbqQ',
+      minZoom: 4,
+      maxZoom: 14
+    }).addTo(map);
+
+    var app = new Vue({
+      el: '#app',
+      data: {
+        wellYear: 1930,
+        brks: []
+      },
+      methods: {
+        popMap : function () {
+
+          if(this.wellYear == 2017) {
+            return;
+          }
+
+          var wellcounts = [];
+
+          axios.get('wells/' + this.wellYear).then(res => {
+
+            for(hexbin in res.data.features) {
+              wellcounts.push( parseInt(res.data.features[hexbin].properties.well_count));
+            }
+
+            var breaks = getClassBreaks(wellcounts, 5);
+
+            if(breaks[0])
+              this.brks[0] = breaks[0][1];
+
+            if(breaks[1])
+              this.brks[1] = breaks[1][1];
+
+            if(breaks[2])
+              this.brks[2] = breaks[2][1];
+
+            if(breaks[3])
+              this.brks[3] = breaks[3][1];
+
+            if(breaks[4])
+              this.brks[4] = breaks[4][1];
+
+            var lg = new L.layerGroup();
+            var color = '#ff0000'; //var color = '#'+(Math.random()*0xFFFFFF<<0).toString(16);
+            var thisYear = this.wellYear;
+
+            lg.addLayer(L.geoJson(res.data, {
+              year: thisYear,
+              style: function(feature) {
+                var opacity = getOpacity(parseInt(feature.properties.well_count),breaks);
+                return {
+                  color: color,
+                  fillColor: color,
+                  fillOpacity: opacity,
+                  stroke: true,
+                  weight: 1
+                }
+              }
+            }));
+
+            lg.addTo(map);
+            map.eachLayer(function (layer) {
+              if (!layer._url && layer.defaultOptions && layer.defaultOptions.year && layer.defaultOptions.year != thisYear) {
+                map.removeLayer(layer);//console.log('deleteme:' + layer.defaultOptions.year);
+              }
+            });
+
+            this.wellYear ++;
+            setTimeout(app.popMap, 300);
+          });
+        },
+      },
+      created: function () {
+        this.popMap();
+      }
+    });
+
+    function getClassBreaks(values, numberOfBreaks) {
+      if(values.length <= numberOfBreaks)
+        numberOfBreaks = values.length;
+      var clusters = ss.ckmeans(values, numberOfBreaks);
+      var breaks = clusters.map(function(cluster) {
+        return [cluster[0], cluster.pop()];
+      });
+      return breaks;
+    }
+
+    function getOpacity(d, breaks) {
+      d = parseInt(d);
+      if (d <= breaks[0][1]) {
+        return 0.2;
+      } else if (d <= breaks[1][1]) {
+        return 0.4;
+      } else if (d <= breaks[2][1]) {
+        return 0.6;
+      } else if (d <= breaks[3][1]) {
+        return 0.8;
+      } else if (d <= breaks[4][1]) {
+        return 1.0;
+      }
+    }
+
+</script>
