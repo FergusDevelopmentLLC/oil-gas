@@ -6,4 +6,5 @@ public/data/*.csv
 public/data/fedland_geojson.tar.gz
 public/data/*.dump
 knexfile.js
+/data/*.*
 *.lock
